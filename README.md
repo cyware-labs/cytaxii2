@@ -26,7 +26,7 @@ You can now install the CYTAXII2 using the [Python Package Index](http://pypi.py
  pip as shown below. 
 
 ```
-$ pip install cytaxii2
+pip install cytaxii2
 ```
 
 1. Import the Cyware TAXII2 command library.
@@ -44,7 +44,7 @@ from cytaxii2 import cytaxii2
 
 Use the following commands to create an object with the TAXII URL, username, password, and TAXII version (2.0 or 2.1).
 ```
-cytaxii\_object = cytaxii2.cytaxii2('taxii_discovery_url', 'taxii_username', 'taxii_password, version=taxii_version)
+cytaxii_object = cytaxii2.cytaxii2('taxii_discovery_url', 'taxii_username', 'taxii_password, version=taxii_version)
 ```
 
 ## Use Cases
