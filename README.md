@@ -2,16 +2,42 @@
 
 ## Introduction
 
-**CYTAXII2** is an **Open Source** offering from **Cyware** that provides developers with the support for interacting with the TAXII server. 
+**CYTAXII2** is an **Open Source** offering from Cyware that provides developers with the support for interacting with the TAXII server using a Python library.
 
-CYTAXII2 acts as a TAXII client that you can install as a Python [pip] Library 
+TAXII (Trusted Automated eXchange of Indicator Information) is a collection of specifications defining a set of services and message exchanges used for sharing cyber threat intelligence information between parties.
 
-Cyware’s other open-source offerings also include Cyware Threat Intelligence Feeds that bring you valuable threat data from a wide range of open and trusted sources to deliver a consolidated stream of valuable and actionable threat intelligence. When you sign up for Cyware Threat Intelligence feeds, you will receive TAXII server credentials that include user name, password, and TAXII Server URLs. You can use these credentials to access the threat intel data in Cyware Threat feeds. 
+CYTAXII2 acts as a TAXII client that you can install as a Python [Pip] Library. It implements all TAXII services according to TAXII 2.X specifications such as 
+Consume intel from sources such as Cyware Threat feeds or any other sources that send you Threat Intel in STIX format through TAXII protocol. (Poll)
+Contribute and send intel to a collection on a TAXII server. (Inbox)
 
-You now have a TAXII client (CYTAXII2) and also TAXII server credentials from Cyware. If you are a security analyst or a user and do not have access to technology such as a Threat Intelligence Platform (TIP), you can use CYTAXII2 to perform some basic operations using the TAXII server and client such as 
+### CYTAXII2 use cases
+Here are some ways to use Cyware’s CYTAXII2. 
 
-- Consume intel from sources such as Cyware Threat feeds or any other sources that send you Threat Intel in STIX format through TAXII protocol. (Poll)
-- Contribute and send intel to a collection on a TAXII server. (Inbox)
+#### Use CYTAXII2 with a Threat Intelligence Platform
+If you are an organization that uses a Threat Intelligence Platform such as CTIX, or any other TIP, you can use CYTAXII2 to perform some basic orchestration services to accelerate your incident detection and response capabilities. 
+
+You can fetch information from a collection in CTIX and orchestrate this information into a (Security Information and Event Management) SIEM tool to gain better insights from your collated logs. 
+
+You can fetch information from a collection in a TIP and orchestrate this information to an Endpoint Detection and Response (EDR) tool to successfully block malicious endpoints.
+
+You can fetch information from a collection and put that information in a different collection on a new tool or a platform.
+
+Use CYTAXII2 without a Threat Intelligence Platform
+
+If you are a security analyst or a user and do not have access to technology such as a Threat Intelligence Platform (TIP), you can use CYTAXII2 to perform some basic TAXII server operations like consuming intel from a collection (poll) or contribute to intel into a collection (inbox).
+
+#### Use CYTAXII2 with Cyware and other STIX feeds
+You can use CYTAXII2 with Cyware’s open-source Cyware Threat Intelligence Feeds or any STIX threat intelligence feeds and fetch valuable intel or contribute your intel to a collection on the TAXII server.
+
+Cyware Threat Intelligence Feeds provide you with valuable threat data from a wide range of open and trusted sources to deliver a consolidated stream of valuable and actionable threat intelligence. 
+
+When you sign up for Cyware Threat Intelligence feeds, you will receive TAXII server credentials that include user name, password, and TAXII Server URLs. You can use these credentials to access the threat intel data in Cyware Threat feeds. Along with the TAXII client (CYTAXII2) you now also have TAXII server credentials from Cyware. 
+
+#### Key Takeaway
+In conclusion, CYTAXII2 is a unique and open-sourced TAXII 2.X client offering from Cyware that 
+- you can use in a multitude of ways, 
+- is developer-friendly, 
+- and delivers threat intel data in the universally accepted STIX 2.X format.
 
 ## Installation
 CYTAXII2 works as a Python library. Use the following procedure to install CyTaxii 2 and get started.
