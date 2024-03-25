@@ -30,6 +30,7 @@ class cytaxii2(object):
             raise SyntaxError("Invalid version entered. Only TAXII versions 2.0 and 2.1 are supported")
 
         self.discovery_url = discovery_url
+        self.api_root = None
         self.auth = (username, password)
         self.collections = "collections"
         self.objects = "objects"
@@ -83,46 +84,60 @@ class cytaxii2(object):
         response = self.request_handler(method='GET', url=self.discovery_url)
         return response
 
+    def get_api_root(self, **kwargs):
+        """
+        This method is used to manage retreiving the default API root for TAXII server.
+
+        Returns
+        :api_root (str): api root default if available, otherwise discover_request() response
+        :early_return (bool): False if API root found, otherwise True (bad discover_request)
+        """
+        if not self.api_root:
+            discover_response = self.discovery_request()
+            if discover_response['status_code'] == 200:
+                self.api_root = discover_response['response']['default']
+            else:
+                return discover_response, True
+
+        return self.api_root, False
+
     def root_discovery(self, **kwargs):
         """
         This method is used to make a root discovery request to the TAXII URL
         """
-        discover_response = self.discovery_request()
-        if discover_response['status_code'] == 200:
-            api_root = discover_response['response']['default']
-            response = self.request_handler(method='GET', url=api_root)
-            return response
-        else:
-            return discover_response
+        api_root, early_return = self.get_api_root()
+        if early_return:
+            return api_root
+
+        response = self.request_handler(method='GET', url=api_root)
+        return response
 
     def collection_request(self, **kwargs):
         """
         This method is used to make a request to the TAXII server to get all collections on the server
         """
-        discover_response = self.discovery_request()
-        if discover_response['status_code'] == 200:
-            api_root = discover_response['response']['default']
-            api_root = api_root.rstrip('/')
-            collection_url = "{0}/{1}/".format(api_root, self.collections)
-            response = self.request_handler(method='GET', url=collection_url)
-            return response
-        else:
-            return discover_response
+        api_root, early_return = self.get_api_root()
+        if early_return:
+            return api_root
+
+        api_root = api_root.rstrip('/')
+        collection_url = "{0}/{1}/".format(api_root, self.collections)
+        response = self.request_handler(method='GET', url=collection_url)
+        return response
 
     def collection_data_request(self, collection_id, **kwargs):
         """
         This method is used to get data about a particular collection on the TAXII server
         :param collection_id: Enter the collection ID
         """
-        discover_response = self.discovery_request()
-        if discover_response['status_code'] == 200:
-            api_root = discover_response['response']['default']
-            api_root = api_root.rstrip('/')
-            poll_url = "{0}/{1}/{2}/".format(api_root, self.collections, collection_id)
-            response = self.request_handler(method='GET', url=poll_url)
-            return response
-        else:
-            return discover_response
+        api_root, early_return = self.get_api_root()
+        if early_return:
+            return api_root
+
+        api_root = api_root.rstrip('/')
+        poll_url = "{0}/{1}/{2}/".format(api_root, self.collections, collection_id)
+        response = self.request_handler(method='GET', url=poll_url)
+        return response
 
     def poll_request(self, collection_id, added_after=None, limit=None, object_id=None, next=None, object_type=None,
                      **kwargs):
@@ -135,7 +150,10 @@ class cytaxii2(object):
         :param added_after: Enter the date to poll from, polls all data if left blank
         :param collection_id: Enter the collection ID
         """
-        discover_response = self.discovery_request()
+        api_root, early_return = self.get_api_root()
+        if early_return:
+            return api_root
+
         params = {
             'added_after': added_after,
             'limit': limit,
@@ -143,14 +161,10 @@ class cytaxii2(object):
             'match[id]': object_id,
             'match[type]': object_type
         }
-        if discover_response['status_code'] == 200:
-            api_root = discover_response['response']['default']
-            api_root = api_root.rstrip('/')
-            poll_url = "{0}/{1}/{2}/{3}/".format(api_root, self.collections, collection_id, self.objects)
-            response = self.request_handler(method='GET', url=poll_url, query_params=params)
-            return response
-        else:
-            return discover_response
+        api_root = api_root.rstrip('/')
+        poll_url = "{0}/{1}/{2}/{3}/".format(api_root, self.collections, collection_id, self.objects)
+        response = self.request_handler(method='GET', url=poll_url, query_params=params)
+        return response
 
     def inbox_request(self, collection_id, stix_bundle, **kwargs):
         """
@@ -158,12 +172,11 @@ class cytaxii2(object):
         :param collection_id: Enter the collection ID
         :param stix_bundle: STIX data to make an inbox request to
         """
-        discover_response = self.discovery_request()
-        if discover_response['status_code'] == 200:
-            api_root = discover_response['response']['default']
-            api_root = api_root.rstrip('/')
-            inbox_url = "{0}/{1}/{2}/{3}/".format(api_root, self.collections, collection_id, self.objects)
-            response = self.request_handler(method='POST', url=inbox_url, json_data=stix_bundle)
-            return response
-        else:
-            return discover_response
+        api_root, early_return = self.get_api_root()
+        if early_return:
+            return api_root
+
+        api_root = api_root.rstrip('/')
+        inbox_url = "{0}/{1}/{2}/{3}/".format(api_root, self.collections, collection_id, self.objects)
+        response = self.request_handler(method='POST', url=inbox_url, json_data=stix_bundle)
+        return response
