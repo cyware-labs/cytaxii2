@@ -1,4 +1,9 @@
 import requests
+import json
+from datetime import datetime
+import os
+from typing import Optional, Dict, Any, Union
+import logging
 
 """
 Cyware TAXII 2.0/ 2.1 Client 
@@ -180,3 +185,70 @@ class cytaxii2(object):
         inbox_url = "{0}/{1}/{2}/{3}/".format(api_root, self.collections, collection_id, self.objects)
         response = self.request_handler(method='POST', url=inbox_url, json_data=stix_bundle)
         return response
+
+    def download_indicator(self, collection_id: str, object_id: str, filename: Optional[str] = None) -> bool:
+        """
+        Downloads a specific indicator as a TXT file.
+        
+        Args:
+            collection_id (str): The collection ID containing the indicator
+            object_id (str): The specific object ID to download
+            filename (str, optional): Custom filename for the downloaded indicator.
+                                   If not provided, generates filename using timestamp,
+                                   object_id, and collection_id
+        
+        Returns:
+            bool: True if download was successful, False otherwise
+        
+        Raises:
+            ValueError: If collection_id or object_id is empty
+        """
+        # Input validation
+        if not collection_id or not collection_id.strip():
+            raise ValueError("collection_id cannot be empty")
+        if not object_id or not object_id.strip():
+            raise ValueError("object_id cannot be empty")
+
+        try:
+            # Fetch the indicator
+            response = self.poll_request(collection_id=collection_id, object_id=object_id)
+            
+            if not response['status']:
+                logging.error(f"Failed to fetch indicator: {response.get('response', 'Unknown error')}")
+                return False
+            
+            # Validate response data
+            if not response.get('response'):
+                logging.error("No data received in response")
+                return False
+
+            # Handle empty objects array in response
+            response_data = response['response']
+            if isinstance(response_data, dict) and 'objects' in response_data:
+                if not response_data['objects']:
+                    logging.error(f"No indicator found with ID {object_id}")
+                    return False
+                response_data = response_data['objects'][0]  # Take first object if multiple returned
+            
+            # Generate default filename if none provided
+            if not filename:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                safe_collection_id = "".join(c if c.isalnum() else "_" for c in collection_id)
+                safe_object_id = "".join(c if c.isalnum() else "_" for c in object_id)
+                filename = f"indicator_{timestamp}_{safe_collection_id}_{safe_object_id}.txt"
+            elif not filename.endswith('.txt'):
+                filename = f"{filename}.txt"
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
+            
+            # Write the indicator data to file
+            with open(filename, 'w') as f:
+                json.dump(response_data, f, indent=2)
+            
+            logging.info(f"Successfully downloaded indicator to {filename}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error downloading indicator: {str(e)}")
+            return False
