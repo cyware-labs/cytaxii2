@@ -44,6 +44,8 @@ class cytaxii2(object):
         :param json_data: Enter the json data to pass as a payload
         """
         try:
+            status_code = None
+
             if method == 'GET':
                 response = requests.get(url=url, data=json_data, headers=self.headers, auth=self.auth,
                                         params=query_params)
@@ -63,11 +65,11 @@ class cytaxii2(object):
                 response_json = response.json()
                 status = True
             else:
-                response_json = response.json()
+                response_json = None
                 status = False
 
         except Exception as e:
-            status_code = 'EXCEPTION'
+            status_code = 'EXCEPTION' if status_code is None else status_code
             response_json = str(e)
             status = False
 
