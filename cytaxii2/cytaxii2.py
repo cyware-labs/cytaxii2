@@ -63,7 +63,7 @@ class cytaxii2(object):
                 response_json = response.json()
                 status = True
             else:
-                response_json = response.json()
+                response_json = None
                 status = False
 
         except Exception as e:
