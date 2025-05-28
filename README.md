@@ -142,10 +142,32 @@ Along with Collection ID, here are some other optional arguments that you can pa
 - **data_limit** - Enter the number of responses to return.  
 - **object_id**: Enter the ID of the object. 
 - **object_type**: Enter the type of object that you want to poll for. 
-- **next**: Enter a number like 2, 3, etc. 
+- **next**: To fetch the first page of results, omit the next argument or set it to 0. For subsequent pages, use the next value returned in the current response. This value is a cursor, not an incrementing offset, and must be passed exactly as received. 
 
 ```
-poll_response = cytaxii_object.poll_request(collection_id='collection_id', added_after=None, limit=None, object_id=None)
+next = 0  # Set to 0 or omit for the first request
+
+while True:
+    poll_response = cytaxii_object.poll_request(
+        collection_id='collection_id',
+        added_after=None,
+        limit=None,
+        object_id=None,
+        next=next
+    )
+
+    # Process the response data
+    objects = poll_response.get('response', {}).get('objects', [])
+    for obj in objects:
+        print(obj)
+
+    # Get the cursor for the next page
+    next = poll_response.get('response', {}).get('next')
+
+    # Break if there's no next page
+    if not next:
+        break
+
 ```
 
 ![](images/img3.png)
@@ -219,7 +241,7 @@ stix_json = """
 } 
 ], 
 "more": true, 
-"next": "2" 
+"next": "32768" 
 } 
 """
 ```
