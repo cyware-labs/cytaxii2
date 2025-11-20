@@ -59,13 +59,13 @@ class cytaxii2(object):
                     'status_code': 405
                 }
 
-            status_code = response.status_code
+            status_code = response.status_code if response.status_code else 500
 
             if response.ok:
                 response_json = response.json()
                 status = True
             else:
-                response_json = None
+                response_json = response
                 status = False
 
         except Exception as e:
