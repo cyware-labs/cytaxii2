@@ -61,12 +61,14 @@ class cytaxii2(object):
 
             status_code = response.status_code if response.status_code else 500
 
-            if response.ok:
+            try:
                 response_json = response.json()
-                status = True
-            else:
-                response_json = response
-                status = False
+            except Exception:
+                response_json = {}
+                if 'Retry-After' in response.headers:
+                    response_json['Retry-After'] = response.headers['Retry-After']
+
+            status = response.ok
 
         except Exception as e:
             status_code = 'EXCEPTION' if status_code is None else status_code
