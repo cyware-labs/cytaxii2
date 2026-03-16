@@ -1,12 +1,32 @@
+import threading
 import requests
 
 """
 Cyware TAXII 2.0/ 2.1 Client 
 TAXII Supported Version: 2.0 & 2.1
+
+The client caches the default API root after the first successful discovery.
+Reuse the same client instance for multiple requests to avoid repeated discovery.
 """
+
+# Cache API root by discovery_url so even new client instances avoid repeated discovery.
+# Guarded by a lock for thread safety. Use clear_api_root_cache() to reset (e.g. in tests).
+_api_root_cache = {}
+_api_root_cache_lock = threading.Lock()
+
+
+def clear_api_root_cache():
+    """Clear the shared API root cache. Use when the server's default API root may have changed."""
+    with _api_root_cache_lock:
+        _api_root_cache.clear()
 
 
 class cytaxii2(object):
+    """
+    TAXII 2.x client. Caches the API root after first discovery; reuse this
+    instance for multiple requests to avoid repeated discovery calls.
+    """
+
     def __init__(self, discovery_url, username, password, version=2.1, **kwargs):
         """
         This method is used to initialize values throughout the class
@@ -35,46 +55,87 @@ class cytaxii2(object):
         self.collections = "collections"
         self.objects = "objects"
 
-    def request_handler(self, method, url, json_data=None, query_params=None, **kwargs):
+    def request_handler(self, method, url, json_data=None, query_params=None, timeout=30, **kwargs):
         """
-        This method is used to handle all TAXII requests
-        :param query_params: Any query params to pass
-        :param method: Enter the HTTP method to use
-        :param url: Enter the URL to make the request to
-        :param json_data: Enter the json data to pass as a payload
+        Perform an HTTP request. Never raises. Returns status, status_code, response, headers.
+
+        status_code is always set: HTTP code when a response was received (e.g. 429),
+        or 500 when the request failed before any response.
+
+        When response.ok is False, we still try to parse JSON; if the body is not
+        valid JSON we do not raise—we return status_code and a clear message string
+        (including the code), so 429 and other flux errors are visible.
+
+        response: parsed JSON (dict/list) on success or when server returned JSON;
+        otherwise a string (405 message, exception message, or parse error with status).
+
+        headers: when an HTTP response was received, a dict of response header names
+        to values (e.g. Retry-After, WWW-Authenticate, X-RateLimit-*); None when no
+        response (e.g. connection error). Use for backoff, auth challenges, rate limits.
+
+        timeout: passed to requests (default 30 seconds). Override via kwargs or this argument.
+        **kwargs: forwarded to requests.get/post (e.g. timeout, verify).
         """
+        if method not in ('GET', 'POST'):
+            return {
+                'status': False,
+                'status_code': 405,
+                'response': 'Unsupported Method requested',
+                'headers': None,
+            }
+
+        req_kwargs = {'url': url, 'headers': self.headers, 'auth': self.auth, 'timeout': timeout, **kwargs}
+        if method == 'GET':
+            req_kwargs['params'] = query_params
+            if json_data is not None:
+                req_kwargs['data'] = json_data
+        else:
+            req_kwargs['params'] = query_params
+            if isinstance(json_data, (dict, list)):
+                req_kwargs['json'] = json_data
+            elif json_data is not None:
+                req_kwargs['data'] = json_data
+
         try:
             if method == 'GET':
-                response = requests.get(url=url, data=json_data, headers=self.headers, auth=self.auth,
-                                        params=query_params)
-            elif method == 'POST':
-                response = requests.post(url=url, data=json_data, headers=self.headers, auth=self.auth,
-                                         params=query_params)
+                response = requests.get(**req_kwargs)
             else:
-                return {
-                    'response': 'Unsupported Method requested',
-                    'status': False,
-                    'status_code': 405
-                }
+                response = requests.post(**req_kwargs)
+        except requests.RequestException as e:
+            return {
+                'status': False,
+                'status_code': 500,
+                'response': str(e),
+                'headers': None,
+            }
 
-            status_code = response.status_code
+        status_code = response.status_code
+        body = response.text or ''
+        response_headers = dict(response.headers)
 
-            if response.ok:
-                response_json = response.json()
-                status = True
-            else:
-                response_json = response.json()
-                status = False
+        try:
+            response_json = response.json() if body.strip() else None
+        except (ValueError, TypeError) as e:
+            raw_preview_len = 4096
+            raw_preview = (body[:raw_preview_len] + '...') if len(body) > raw_preview_len else body
+            err_msg = 'Invalid JSON: {} (HTTP {}). Raw response: {}'.format(
+                e, status_code, raw_preview
+            )
+            return {
+                'status': False,
+                'status_code': status_code,
+                'response': err_msg,
+                'headers': response_headers,
+            }
 
-        except Exception as e:
-            status_code = 'EXCEPTION'
-            response_json = str(e)
-            status = False
-
+        status = True if response.ok else False
+        if not response.ok and response_json is None:
+            response_json = ""
         return {
-            'response': response_json,
             'status': status,
-            'status_code': status_code
+            'status_code': status_code,
+            'response': response_json,
+            'headers': response_headers,
         }
 
     def discovery_request(self, **kwargs):
@@ -86,20 +147,36 @@ class cytaxii2(object):
 
     def get_api_root(self, **kwargs):
         """
-        This method is used to manage retreiving the default API root for TAXII server.
+        Return the default API root for the TAXII server. The result is cached:
+        - on this instance (self.api_root), and
+        - by discovery_url (shared across instances for the same server),
+        so discovery_request() is only called once per server. Reuse the same
+        client instance when possible to avoid extra work.
 
         Returns
         :api_root (str): api root default if available, otherwise discover_request() response
         :early_return (bool): False if API root found, otherwise True (bad discover_request)
         """
-        if not self.api_root:
-            discover_response = self.discovery_request()
-            if discover_response['status_code'] == 200:
-                self.api_root = discover_response['response']['default']
-            else:
+        if self.api_root:
+            return self.api_root, False
+        with _api_root_cache_lock:
+            if self.discovery_url in _api_root_cache:
+                self.api_root = _api_root_cache[self.discovery_url]
+                return self.api_root, False
+        discover_response = self.discovery_request()
+        resp = discover_response.get('response')
+        if discover_response.get('status_code') == 200 and isinstance(resp, dict) and 'default' in resp:
+            root = resp['default']
+            if not isinstance(root, str) or not root.strip():
                 return discover_response, True
-
-        return self.api_root, False
+            with _api_root_cache_lock:
+                if self.discovery_url in _api_root_cache:
+                    self.api_root = _api_root_cache[self.discovery_url]
+                else:
+                    _api_root_cache[self.discovery_url] = root
+                    self.api_root = root
+            return self.api_root, False
+        return discover_response, True
 
     def root_discovery(self, **kwargs):
         """
