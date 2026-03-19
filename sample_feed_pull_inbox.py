@@ -6,7 +6,7 @@ Sample script: TAXII 2.1 feed Pull and Inbox using cytaxii2.
 - Downloaded feed is saved as: {collection_id}_{timestamp}.json
 - Uses STIX 2.1 / TAXII 2.1.
 - Script options #3 & #4 are used to test rate limiting. Configure TAXII server 
-  limit to 10 requests per minut.
+  limit to 10 requests per minute.
 """
 
 import json
